@@ -1,0 +1,417 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Kalkulator nalotu</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 20px; background:#f4f7fb; color:#111; }
+    h1 { margin: 0 0 6px; }
+    .muted { color:#555; margin-top:0; }
+    .grid { display:grid; gap:12px; grid-template-columns: repeat(auto-fit,minmax(240px,1fr)); }
+    .card { background:#fff; border:1px solid #d9e2ef; border-radius:10px; padding:14px; }
+    label { display:block; font-weight:600; margin:8px 0 4px; }
+    input, select, button { width:100%; box-sizing:border-box; padding:8px; border-radius:6px; border:1px solid #b8c7dd; }
+    button { cursor:pointer; background:#1f6feb; color:#fff; border:none; font-weight:600; }
+    button.secondary { background:#5f6c80; }
+    button.warn { background:#b42318; }
+    .row { display:grid; gap:8px; grid-template-columns: 1fr 1fr; }
+    table { width:100%; border-collapse:collapse; background:#fff; margin-top:10px; }
+    th, td { border:1px solid #d6deea; padding:8px; text-align:center; }
+    th { background:#eaf1fb; }
+    td:first-child { text-align:left; }
+    .stats { display:grid; gap:8px; grid-template-columns: repeat(auto-fit,minmax(210px,1fr)); margin-top:10px; }
+    .stat { background:#fff; border:1px solid #d9e2ef; border-radius:8px; padding:10px; }
+    .value { font-size:1.2rem; font-weight:700; margin-top:4px; }
+    .ok { color:#067647; font-weight:700; }
+  </style>
+</head>
+<body>
+  <h1>Kalkulator nalotu</h1>
+  <p class="muted">Dodawaj loty dzienne/nocne, zapisuj dane lokalnie i eksportuj do CSV (otwieralny w Excelu).</p>
+
+  <div class="grid">
+    <section class="card">
+      <h3>1) Dane początkowe (jednorazowo)</h3>
+      <label for="initial">Nalot początkowy (HHHH:MM)</label>
+      <input id="initial" type="text" placeholder="np. 3000:30" />
+      <label for="initialFlights">2) Początkowa liczba lotów</label>
+      <input id="initialFlights" type="number" min="0" step="1" placeholder="np. 350" />
+      <div class="row" style="margin-top:8px;">
+        <button id="saveInitial">Zapisz i zablokuj</button>
+        <button id="resetInitial" class="warn" type="button">Odblokuj / zmień</button>
+      </div>
+      <p id="initialInfo" class="ok"></p>
+    </section>
+
+    <section class="card">
+      <h3>2) Dodaj wpis lotu</h3>
+      <div class="row">
+        <div>
+          <label for="year">Rok</label>
+          <input id="year" type="number" min="2000" max="2100" />
+        </div>
+        <div>
+          <label for="month">Miesiąc</label>
+          <select id="month"></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="day">Dzień miesiąca</label>
+          <select id="day"></select>
+        </div>
+        <div>
+          <label for="period">Pora</label>
+          <select id="period"><option value="day">Dzień</option><option value="night">Noc</option></select>
+        </div>
+      </div>
+      <div class="row">
+        <div>
+          <label for="duration">Nalot (HH:MM)</label>
+          <input id="duration" type="text" placeholder="np. 01:45" />
+        </div>
+        <div>
+          <label for="flights">Liczba lotów</label>
+          <input id="flights" type="number" min="1" value="1" />
+        </div>
+      </div>
+      <label for="note">Notatka (opcjonalnie)</label>
+      <input id="note" type="text" placeholder="np. lot treningowy" />
+      <button id="addEntry" style="margin-top:10px;">Dodaj wpis</button>
+      <p id="entryMsg"></p>
+    </section>
+
+    <section class="card">
+      <h3>3) Plik danych</h3>
+      <button id="exportCsv">Pobierz CSV (Excel)</button>
+      <button id="exportTxt" class="secondary" style="margin-top:8px;">Pobierz notatnik TXT</button>
+      <label for="importCsv">Wczytaj CSV i nadpisz bieżące dane</label>
+      <input id="importCsv" type="file" accept=".csv,text/csv" />
+    </section>
+  </div>
+
+  <section class="card" style="margin-top:14px;">
+    <h3>4) Podgląd i podsumowania</h3>
+    <div class="row">
+      <div>
+        <label for="viewYear">Podgląd roku</label>
+        <input id="viewYear" type="number" min="2000" max="2100" />
+      </div>
+      <div>
+        <label for="viewMonth">Podgląd miesiąca</label>
+        <select id="viewMonth"></select>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div>Nalot miesięczny dzień</div><div class="value" id="mDay">00:00</div></div>
+      <div class="stat"><div>Nalot miesięczny noc</div><div class="value" id="mNight">00:00</div></div>
+      <div class="stat"><div>Nalot miesięczny razem</div><div class="value" id="mTotal">00:00</div></div>
+      <div class="stat"><div>Nalot roczny dzień</div><div class="value" id="yDay">00:00</div></div>
+      <div class="stat"><div>Nalot roczny noc</div><div class="value" id="yNight">00:00</div></div>
+      <div class="stat"><div>Nalot roczny razem</div><div class="value" id="yTotal">00:00</div></div>
+      <div class="stat"><div>Nalot całkowity (roczny + początkowy)</div><div class="value" id="overall">00:00</div></div>
+    </div>
+
+    <h4 style="margin:14px 0 8px;">Liczba lotów</h4>
+    <div class="stats">
+      <div class="stat"><div>Loty miesięczne dzień</div><div class="value" id="fmDay">0</div></div>
+      <div class="stat"><div>Loty miesięczne noc</div><div class="value" id="fmNight">0</div></div>
+      <div class="stat"><div>Loty miesięczne razem</div><div class="value" id="fmTotal">0</div></div>
+      <div class="stat"><div>Loty roczne dzień</div><div class="value" id="fyDay">0</div></div>
+      <div class="stat"><div>Loty roczne noc</div><div class="value" id="fyNight">0</div></div>
+      <div class="stat"><div>Loty roczne razem</div><div class="value" id="fyTotal">0</div></div>
+      <div class="stat"><div>Loty całkowite (roczne + początkowe)</div><div class="value" id="fOverall">0</div></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th><th>Pora</th><th>Nalot</th><th>Liczba lotów</th><th>Notatka</th><th>Usuń</th>
+        </tr>
+      </thead>
+      <tbody id="entries"></tbody>
+    </table>
+  </section>
+
+  <script>
+    const STORAGE_KEY = 'naloty_v2_data';
+    const months = ['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+
+    const state = loadState();
+
+    const el = (id) => document.getElementById(id);
+    const monthSel = el('month');
+    const viewMonthSel = el('viewMonth');
+    const daySel = el('day');
+
+    function pad(n, width=2){ return String(n).padStart(width,'0'); }
+    function fmt(min, hourWidth=2){ const h=Math.floor(min/60); const m=min%60; return `${pad(h, hourWidth)}:${pad(m)}`; }
+    function parseDuration(txt){
+      const m = String(txt||'').trim().match(/^(\d{1,4}):([0-5]\d)$/);
+      return m ? (Number(m[1]) * 60 + Number(m[2])) : null;
+    }
+    function parseInitialDuration(txt){
+      const m = String(txt||'').trim().match(/^(\d{4}):([0-5]\d)$/);
+      return m ? (Number(m[1]) * 60 + Number(m[2])) : null;
+    }
+    function isoDate(year, month1, day){ return `${year}-${pad(month1)}-${pad(day)}`; }
+
+    function saveState(){ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }
+    function loadState(){
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return { initialMinutes: null, initialFlights: null, entries: [] };
+        const parsed = JSON.parse(raw);
+        return { initialMinutes: parsed.initialMinutes ?? null, initialFlights: parsed.initialFlights ?? null, entries: Array.isArray(parsed.entries) ? parsed.entries : [] };
+      } catch { return { initialMinutes: null, initialFlights: null, entries: [] }; }
+    }
+
+    function rebuildDays(){
+      const y = Number(el('year').value);
+      const m = Number(monthSel.value);
+      const max = new Date(y, m, 0).getDate();
+      const old = Number(daySel.value) || 1;
+      daySel.innerHTML = '';
+      for (let d=1; d<=max; d++) daySel.innerHTML += `<option value="${d}">${d}</option>`;
+      daySel.value = String(Math.min(old, max));
+    }
+
+    function fillMonths(select){
+      select.innerHTML = months.map((m,i)=>`<option value="${i+1}">${m}</option>`).join('');
+    }
+
+    function renderInitial(){
+      const locked = state.initialMinutes !== null && state.initialFlights !== null;
+      el('initial').disabled = locked;
+      el('initialFlights').disabled = locked;
+      el('saveInitial').disabled = locked;
+      el('initial').value = state.initialMinutes !== null ? fmt(state.initialMinutes, 4) : '';
+      el('initialFlights').value = state.initialFlights !== null ? String(state.initialFlights) : '';
+      el('initialInfo').textContent = locked ? `Zapisano: ${fmt(state.initialMinutes, 4)} i lotów: ${state.initialFlights} (możesz odblokować przyciskiem obok).` : 'Brak pełnych danych początkowych.';
+    }
+
+    function addEntry(){
+      const year = Number(el('year').value);
+      const month = Number(monthSel.value);
+      const day = Number(daySel.value);
+      const durationMinutes = parseDuration(el('duration').value);
+      const flights = Number(el('flights').value);
+      const period = el('period').value;
+      const note = el('note').value.trim();
+
+      if (!year || !month || !day || durationMinutes === null || flights < 1 || !['day','night'].includes(period)) {
+        el('entryMsg').textContent = 'Uzupełnij poprawnie wszystkie pola (nalot HH:MM, loty >= 1).';
+        return;
+      }
+
+      state.entries.push({
+        id: crypto.randomUUID(),
+        date: isoDate(year, month, day),
+        period,
+        durationMinutes,
+        flights,
+        note
+      });
+      saveState();
+      el('duration').value = '';
+      el('note').value = '';
+      el('entryMsg').textContent = 'Dodano wpis.';
+      renderAll();
+    }
+
+    function deleteEntry(id){
+      state.entries = state.entries.filter(e => e.id !== id);
+      saveState();
+      renderAll();
+    }
+
+    function summarize(){
+      const viewYear = Number(el('viewYear').value);
+      const viewMonth = Number(viewMonthSel.value);
+      let mDay=0,mNight=0,yDay=0,yNight=0;
+      let fmDay=0,fmNight=0,fyDay=0,fyNight=0;
+
+      state.entries.forEach(e => {
+        const [yy,mm] = e.date.split('-').map(Number);
+        if (yy === viewYear){
+          if (e.period === 'day') { yDay += e.durationMinutes; fyDay += e.flights; }
+          else { yNight += e.durationMinutes; fyNight += e.flights; }
+          if (mm === viewMonth){
+            if (e.period === 'day') { mDay += e.durationMinutes; fmDay += e.flights; }
+            else { mNight += e.durationMinutes; fmNight += e.flights; }
+          }
+        }
+      });
+
+      el('mDay').textContent = fmt(mDay);
+      el('mNight').textContent = fmt(mNight);
+      el('mTotal').textContent = fmt(mDay + mNight);
+      el('yDay').textContent = fmt(yDay, 4);
+      el('yNight').textContent = fmt(yNight, 4);
+      const yearly = yDay + yNight;
+      el('yTotal').textContent = fmt(yearly, 4);
+      el('overall').textContent = fmt(yearly + (state.initialMinutes || 0), 4);
+
+      const fYearly = fyDay + fyNight;
+      el('fmDay').textContent = String(fmDay);
+      el('fmNight').textContent = String(fmNight);
+      el('fmTotal').textContent = String(fmDay + fmNight);
+      el('fyDay').textContent = String(fyDay);
+      el('fyNight').textContent = String(fyNight);
+      el('fyTotal').textContent = String(fYearly);
+      el('fOverall').textContent = String(fYearly + (state.initialFlights || 0));
+    }
+
+    function renderTable(){
+      const tbody = el('entries');
+      const viewYear = Number(el('viewYear').value);
+      const viewMonth = Number(viewMonthSel.value);
+      const filtered = state.entries
+        .filter(e => { const [y,m] = e.date.split('-').map(Number); return y===viewYear && m===viewMonth; })
+        .sort((a,b)=>a.date.localeCompare(b.date));
+
+      tbody.innerHTML = filtered.map(e => `
+        <tr>
+          <td>${e.date}</td>
+          <td>${e.period === 'day' ? 'Dzień' : 'Noc'}</td>
+          <td>${fmt(e.durationMinutes)}</td>
+          <td>${e.flights}</td>
+          <td>${e.note || '-'}</td>
+          <td><button data-del="${e.id}" class="warn">Usuń</button></td>
+        </tr>
+      `).join('') || '<tr><td colspan="6">Brak wpisów dla wybranego miesiąca.</td></tr>';
+
+      tbody.querySelectorAll('button[data-del]').forEach(btn => btn.addEventListener('click', () => deleteEntry(btn.dataset.del)));
+    }
+
+    function exportCsv(){
+      const header = 'date,period,duration_hhmm,duration_minutes,flights,note';
+      const init = `#initial_minutes=${state.initialMinutes ?? 0}`;
+      const initFlights = `#initial_flights=${state.initialFlights ?? 0}`;
+      const rows = state.entries.map(e => [
+        e.date,
+        e.period,
+        fmt(e.durationMinutes),
+        e.durationMinutes,
+        e.flights,
+        `"${String(e.note||'').replaceAll('"','""')}"`
+      ].join(','));
+      downloadFile([init,initFlights,header,...rows].join('\n'), 'naloty.csv', 'text/csv;charset=utf-8;');
+    }
+
+    function exportTxt(){
+      const lines = [
+        `Nalot początkowy: ${fmt(state.initialMinutes || 0, 4)}`,
+        `Początkowa liczba lotów: ${state.initialFlights || 0}`,
+        `Liczba wpisów: ${state.entries.length}`,
+        '---',
+        ...state.entries.map(e => `${e.date} | ${e.period==='day'?'Dzień':'Noc'} | ${fmt(e.durationMinutes)} | loty: ${e.flights} | ${e.note||''}`)
+      ];
+      downloadFile(lines.join('\n'), 'naloty.txt', 'text/plain;charset=utf-8;');
+    }
+
+    function downloadFile(content, name, mime){
+      const blob = new Blob([content], {type:mime});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    }
+
+    function importCsv(file){
+      const reader = new FileReader();
+      reader.onload = () => {
+        const lines = String(reader.result || '').split(/\r?\n/).filter(Boolean);
+        if (!lines.length) return;
+        while (lines[0] && lines[0].startsWith('#')) {
+          const meta = lines.shift();
+          if (meta.startsWith('#initial_minutes=')) {
+            const val = Number(meta.split('=')[1]);
+            if (!Number.isNaN(val)) state.initialMinutes = val;
+          }
+          if (meta.startsWith('#initial_flights=')) {
+            const val = Number(meta.split('=')[1]);
+            if (!Number.isNaN(val)) state.initialFlights = val;
+          }
+        }
+        lines.shift(); // header
+        const imported = [];
+        for (const line of lines){
+          const parts = line.split(',');
+          if (parts.length < 6) continue;
+          imported.push({
+            id: crypto.randomUUID(),
+            date: parts[0],
+            period: parts[1],
+            durationMinutes: Number(parts[3]) || 0,
+            flights: Number(parts[4]) || 1,
+            note: parts.slice(5).join(',').replace(/^"|"$/g,'').replaceAll('""','"')
+          });
+        }
+        state.entries = imported;
+        saveState();
+        renderAll();
+      };
+      reader.readAsText(file, 'utf-8');
+    }
+
+    function renderAll(){
+      renderInitial();
+      summarize();
+      renderTable();
+    }
+
+    function init(){
+      fillMonths(monthSel);
+      fillMonths(viewMonthSel);
+      const now = new Date();
+      el('year').value = now.getFullYear();
+      monthSel.value = String(now.getMonth()+1);
+      rebuildDays();
+      daySel.value = String(now.getDate());
+
+      el('viewYear').value = now.getFullYear();
+      viewMonthSel.value = String(now.getMonth()+1);
+
+      monthSel.addEventListener('change', rebuildDays);
+      el('year').addEventListener('change', rebuildDays);
+
+      el('saveInitial').addEventListener('click', () => {
+        const parsed = parseInitialDuration(el('initial').value);
+        const parsedFlights = Number(el('initialFlights').value);
+        if (parsed === null) return alert('Podaj poprawny nalot początkowy w formacie HHHH:MM (np. 3000:30).');
+        if (!Number.isInteger(parsedFlights) || parsedFlights < 0) return alert('Podaj poprawną początkową liczbę lotów (0 lub więcej).');
+        state.initialMinutes = parsed;
+        state.initialFlights = parsedFlights;
+        saveState();
+        renderAll();
+      });
+
+      el('resetInitial').addEventListener('click', () => {
+        if (!confirm('Odblokować nalot początkowy i umożliwić zmianę?')) return;
+        state.initialMinutes = null;
+        state.initialFlights = null;
+        saveState();
+        renderAll();
+      });
+
+      el('addEntry').addEventListener('click', addEntry);
+      el('viewYear').addEventListener('input', renderAll);
+      viewMonthSel.addEventListener('change', renderAll);
+      el('exportCsv').addEventListener('click', exportCsv);
+      el('exportTxt').addEventListener('click', exportTxt);
+      el('importCsv').addEventListener('change', (e) => {
+        const f = e.target.files?.[0];
+        if (f) importCsv(f);
+      });
+
+      renderAll();
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="pl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Nalot</title>
+  <style>
+    :root {
+      --bg: #0b1220;
+      --card: #111a2e;
+      --card-2: #0f1727;
+      --text: #eaf0ff;
+      --muted: #9fb0d3;
+      --accent: #facc15;   /* żółty */
+      --accent-dark: #ca8a04;
+      --ok: #14532d;       /* ciemna zieleń */
+      --ok-2: #166534;
+      --line: #223355;
+      --danger: #7f1d1d;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: Inter, Arial, sans-serif;
+      background: linear-gradient(180deg, #060b16, var(--bg));
+      color: var(--text);
+      padding: 18px;
+    }
+
+    h1 { margin: 0 0 8px; font-size: 1.55rem; }
+    h3 { margin: 0 0 10px; color: var(--accent); }
+    h4 { margin: 8px 0; color: #fde68a; }
+    p { margin: 6px 0; color: var(--muted); }
+
+    .wrap { max-width: 1400px; margin: 0 auto; }
+    .card {
+      background: linear-gradient(180deg, var(--card), var(--card-2));
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 12px;
+      margin-bottom: 12px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+
+    .grid {
+      display: grid;
+      gap: 8px;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    label { display: block; font-weight: 700; margin: 6px 0 4px; font-size: .92rem; }
+    input, select, button {
+      width: 100%;
+      padding: 7px 9px;
+      border-radius: 8px;
+      border: 1px solid #2a3d64;
+      background: #0c1426;
+      color: var(--text);
+      font-size: .92rem;
+    }
+
+    button {
+      cursor: pointer;
+      background: linear-gradient(180deg, #1d4ed8, #1e40af);
+      border-color: #264a9b;
+      font-weight: 700;
+      width: auto;
+      min-width: 150px;
+      padding: 7px 12px;
+    }
+
+    .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+    button.secondary { background: #334155; }
+    button.danger { background: var(--danger); }
+    button.ok { background: linear-gradient(180deg, var(--ok-2), var(--ok)); }
+
+    .value { font-weight: 800; color: #fef3c7; }
+    hr { border: none; border-top: 1px solid var(--line); margin: 10px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      background: #0a1222;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+
+    th, td {
+      border: 1px solid #22365c;
+      padding: 7px;
+      text-align: center;
+      font-size: .9rem;
+    }
+
+    th { background: #142344; color: #fde68a; }
+    td:first-child { text-align: left; }
+
+    .badge {
+      display: inline-block;
+      border: 1px solid #3d537f;
+      border-radius: 999px;
+      padding: 2px 8px;
+      font-size: .8rem;
+      color: #dbeafe;
+    }
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+  <h1>Kalkulator nalotu</h1>
+
+  <section class="card">
+    <h3>1) Dane początkowe</h3>
+    <div class="grid">
+      <div>
+        <label for="initial">Nalot początkowy (HHHH:MM)</label>
+        <input id="initial" />
+      </div>
+      <div>
+        <label for="initialFlights">Początkowa liczba lotów</label>
+        <input id="initialFlights" type="number" min="0" value="0" />
+      </div>
+    </div>
+    <div class="btn-row" style="margin-top:8px">
+      <button id="saveInitial">Zapisz i zablokuj</button>
+      <button id="resetInitial" class="danger">Odblokuj / zmień</button>
+    </div>
+    <p id="initialInfo"></p>
+  </section>
+
+  <section class="card">
+    <h3>2) Dodaj wpis lotu (ręcznie)</h3>
+    <div class="grid">
+      <div><label for="year">Rok</label><input id="year" type="number" /></div>
+      <div><label for="month">Miesiąc</label><select id="month"></select></div>
+      <div><label for="day">Dzień</label><select id="day"></select></div>
+      <div><label for="period">Dzień/Noc</label><select id="period"><option value="day">Dzień</option><option value="night">Noc</option></select></div>
+      <div><label for="duration">Nalot (HH:MM)</label><input id="duration" /></div>
+      <div><label for="flights">Liczba lotów</label><input id="flights" type="number" min="1" value="1" /></div>
+    </div>
+    <div class="grid">
+      <div><label for="weather">Warunki pogodowe</label><input id="weather" /></div>
+      <div><label for="route">Trasa lotu</label><input id="route" placeholder="np. EPKK->EPWA" /></div>
+    </div>
+    <label for="note">Notatka</label><input id="note" />
+    <div class="btn-row" style="margin-top:8px"><button id="addEntry">Dodaj wpis</button></div>
+    <p id="entryMsg"></p>
+  </section>
+
+  <section class="card">
+    <h3>3) Plik danych</h3>
+    <div class="btn-row">
+      <button id="exportCsv" class="ok">Pobierz CSV</button>
+      <button id="exportTxt" class="secondary">Pobierz TXT</button>
+      <input id="importCsv" type="file" accept=".csv,text/csv" style="max-width:320px" />
+    </div>
+  </section>
+
+  <section class="card">
+    <h3>4) Import z CHRONO (po nazwisku)</h3>
+    <p>System automatycznie wykrywa wiersz nagłówka i kolumny (data/załoga/SP/godzina/nalot itp.).</p>
+    <div class="grid">
+      <div><label for="chronoFile">Plik CHRONO</label><input id="chronoFile" type="file" accept=".xls,.xlsx,.xlsm" /></div>
+      <div><label for="chronoSheet">Arkusz (opcjonalnie)</label><input id="chronoSheet" placeholder="puste = pierwszy" /></div>
+      <div><label for="chronoSurname">Nazwisko</label><input id="chronoSurname" /></div>
+    </div>
+    <div class="btn-row" style="margin-top:8px"><button id="loadChrono">Wczytaj loty z CHRONO i dodaj wpisy</button></div>
+    <p id="chronoMsg"></p>
+  </section>
+
+  <section class="card">
+    <h3>5) Podgląd i podsumowanie</h3>
+    <div class="grid">
+      <div><label for="viewYear">Rok podglądu</label><input id="viewYear" type="number" /></div>
+      <div><label for="viewMonth">Miesiąc podglądu</label><select id="viewMonth"></select></div>
+    </div>
+
+    <div class="grid" style="margin-top:8px">
+      <div class="value">Miesiąc dzień: <span id="mDay">00:00</span></div>
+      <div class="value">Miesiąc noc: <span id="mNight">00:00</span></div>
+      <div class="value">Miesiąc razem: <span id="mTotal">00:00</span></div>
+      <div class="value">Rok razem: <span id="yTotal">0000:00</span></div>
+      <div class="value">Całkowity: <span id="overall">0000:00</span></div>
+    </div>
+
+    <h4>Ilość lotów</h4>
+    <div class="grid">
+      <div class="value">Miesiąc dzień: <span id="fmDay">0</span></div>
+      <div class="value">Miesiąc noc: <span id="fmNight">0</span></div>
+      <div class="value">Rok dzień: <span id="fyDay">0</span></div>
+      <div class="value">Rok noc: <span id="fyNight">0</span></div>
+      <div class="value">Całkowita ilość lotów: <span id="fOverall">0</span></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>Data</th><th>D/N</th><th>Nalot</th><th>Loty</th><th>Pogoda</th><th>Trasa</th><th>Źródło</th><th>Usuń</th>
+        </tr>
+      </thead>
+      <tbody id="entries"></tbody>
+    </table>
+  </section>
+</div>
+
+<script>
+const STORAGE='nalot_v8';
+const months=['Styczeń','Luty','Marzec','Kwiecień','Maj','Czerwiec','Lipiec','Sierpień','Wrzesień','Październik','Listopad','Grudzień'];
+const st=(()=>{try{return JSON.parse(localStorage.getItem(STORAGE))||{initialMinutes:null,initialFlights:null,entries:[]}}catch{return {initialMinutes:null,initialFlights:null,entries:[]}}})();
+const el=id=>document.getElementById(id);
+const save=()=>localStorage.setItem(STORAGE,JSON.stringify(st));
+const pad=(n,w=2)=>String(n).padStart(w,'0');
+const fmt=(m,w=2)=>`${pad(Math.floor(Math.max(0,m)/60),w)}:${pad(Math.max(0,m)%60)}`;
+const txt=v=>String(v??'').trim();
+
+function parseHM(s){const m=String(s||'').trim().match(/^(\d{1,4}):(\d{2})$/);return m?Number(m[1])*60+Number(m[2]):null;}
+function excelSerialToDate(n){const d=new Date(Math.floor(n-25569)*86400*1000);return `${pad(d.getUTCDate())}.${pad(d.getUTCMonth()+1)}.${d.getUTCFullYear()}`;}
+function parseDate(v){
+  if(v instanceof Date && !Number.isNaN(v.getTime())) return `${pad(v.getDate())}.${pad(v.getMonth()+1)}.${v.getFullYear()}`;
+  if(typeof v==='number' && Number.isFinite(v)) return excelSerialToDate(v);
+  const s=txt(v), d=new Date(s);
+  if(!Number.isNaN(d.getTime())) return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;
+  return s.replace(/[\/-]/g,'.');
+}
+function dateToIso(dmy){const m=String(dmy).match(/^(\d{2})\.(\d{2})\.(\d{4})$/);return m?`${m[3]}-${m[2]}-${m[1]}`:dmy;}
+function parseDur(v){if(v instanceof Date&&!Number.isNaN(v.getTime()))return v.getHours()*60+v.getMinutes(); if(typeof v==='number'&&Number.isFinite(v))return Math.round(v*24*60); return parseHM(txt(v))||0;}
+
+function init(){
+  months.forEach((m,i)=>{el('month').innerHTML+=`<option value="${i+1}">${m}</option>`;el('viewMonth').innerHTML+=`<option value="${i+1}">${m}</option>`});
+  const n=new Date();
+  el('year').value=n.getFullYear(); el('viewYear').value=n.getFullYear();
+  el('month').value=String(n.getMonth()+1); el('viewMonth').value=String(n.getMonth()+1);
+  rebuildDays(); el('day').value=String(n.getDate());
+
+  el('month').onchange=rebuildDays; el('year').onchange=rebuildDays;
+  el('viewYear').oninput=render; el('viewMonth').onchange=render;
+  el('saveInitial').onclick=saveInitial;
+  el('resetInitial').onclick=()=>{st.initialMinutes=null;st.initialFlights=null;save();render();};
+  el('addEntry').onclick=addManual;
+  el('loadChrono').onclick=loadFromChrono;
+  el('exportCsv').onclick=exportCsv;
+  el('exportTxt').onclick=exportTxt;
+  el('importCsv').onchange=e=>e.target.files?.[0]&&importCsv(e.target.files[0]);
+
+  render();
+}
+
+function rebuildDays(){const y=+el('year').value,m=+el('month').value,max=new Date(y,m,0).getDate(),old=+el('day').value||1;el('day').innerHTML='';for(let d=1;d<=max;d++)el('day').innerHTML+=`<option value="${d}">${d}</option>`;el('day').value=String(Math.min(old,max));}
+function saveInitial(){const m=parseHM(el('initial').value),f=+el('initialFlights').value;if(m===null||!Number.isInteger(f)||f<0)return;st.initialMinutes=m;st.initialFlights=f;save();render();}
+function pushEntry(e){st.entries.push({...e,id:crypto.randomUUID()});}
+
+function addManual(){
+  const y=+el('year').value,m=+el('month').value,d=+el('day').value,dur=parseHM(el('duration').value),fl=+el('flights').value;
+  if(!y||!m||!d||dur===null||fl<1) return;
+  pushEntry({date:`${y}-${pad(m)}-${pad(d)}`,period:el('period').value,durationMinutes:dur,flights:fl,weather:el('weather').value.trim(),route:el('route').value.trim(),source:'manual',note:el('note').value.trim()});
+  save(); el('entryMsg').textContent='Dodano wpis.'; render();
+}
+
+async function parseChrono(file,sheet){
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellDates:true});
+  const sh=(sheet&&wb.Sheets[sheet])?wb.Sheets[sheet]:wb.Sheets[wb.SheetNames[0]];
+  return {rows:XLSX.utils.sheet_to_json(sh,{header:1,defval:'',raw:true}), merges:sh['!merges']||[]};
+}
+
+const KEYWORDS={
+  date:['data','date'],
+  crew:['załoga','zaloga','crew','nazwisk','pilot'],
+  sp:['sp','samolot','statek','nr sp','rejestr'],
+  time:['godzina','start','czas'],
+  duration:['nalot','czas lotu','flight time'],
+  daynight:['d/n','dzień','dzien','noc','day/night'],
+  airport:['lotnisko','ad','start','ląd','lad'],
+  weather:['warunki meteo','meteo','pogoda','weather'],
+  icao:['icao']
+};
+
+const cell=(rows,r,c)=>rows?.[r]?.[c]??'';
+function scoreHeader(v,kws){const s=txt(v).toLowerCase(); if(!s) return 0; return kws.some(k=>s.includes(k))?1:0;}
+
+function detectLayout(rows){
+  let best={row:-1,score:-1,map:{}};
+  const max=Math.min(rows.length,220);
+  for(let r=0;r<max;r++){
+    const row=rows[r]||[]; const map={};
+    row.forEach((v,c)=>{
+      if(map.date===undefined && scoreHeader(v,KEYWORDS.date)) map.date=c;
+      if(map.crew===undefined && scoreHeader(v,KEYWORDS.crew)) map.crew=c;
+      if(map.sp===undefined && scoreHeader(v,KEYWORDS.sp)) map.sp=c;
+      if(map.time===undefined && scoreHeader(v,KEYWORDS.time)) map.time=c;
+      if(map.duration===undefined && scoreHeader(v,KEYWORDS.duration)) map.duration=c;
+      if(map.daynight===undefined && scoreHeader(v,KEYWORDS.daynight)) map.daynight=c;
+      if(map.airport===undefined && scoreHeader(v,KEYWORDS.airport)) map.airport=c;
+      if(map.weather===undefined && scoreHeader(v,KEYWORDS.weather)) map.weather=c;
+      if(map.icao===undefined && scoreHeader(v,KEYWORDS.icao)) map.icao=c;
+    });
+    const score=Object.keys(map).length;
+    if(score>best.score) best={row:r,score,map};
+  }
+
+  const fallback={date:0,sp:1,crew:2,daynight:9,duration:19,airport:29,weather:10,icao:29};
+  const map={...fallback,...best.map};
+  return {map, headerRow:best.row, firstDataRow:best.row>=0?best.row+1:0};
+}
+
+function findFlightStart(r, rows, merges, dateCol){
+  for(const m of merges){ if(m.s.c<=dateCol && m.e.c>=dateCol && r>=m.s.r && r<=m.e.r) return {start:m.s.r,end:m.e.r}; }
+  let start=r; while(start>0 && !txt(cell(rows,start,dateCol))) start--;
+  let end=start; while(end+1<rows.length && !txt(cell(rows,end+1,dateCol))) end++;
+  return {start,end};
+}
+
+function collectUniqueFromBlock(rows, start, end, col){
+  const vals=[];
+  for(let r=start; r<=end && r<rows.length; r++){
+    const v=txt(cell(rows,r,col));
+    if(v && !vals.includes(v)) vals.push(v);
+  }
+  return vals;
+}
+
+async function loadFromChrono(){
+  const file=el('chronoFile').files?.[0], sheet=el('chronoSheet').value.trim(), surname=el('chronoSurname').value.trim().toLowerCase();
+  if(!file||!surname){el('chronoMsg').textContent='Podaj plik i nazwisko.';return;}
+
+  const {rows,merges}=await parseChrono(file,sheet);
+  const layout=detectLayout(rows);
+  const {map,firstDataRow,headerRow}=layout;
+  const used=new Set(); let added=0;
+
+  for(let r=firstDataRow;r<rows.length;r++){
+    const crew=txt(cell(rows,r,map.crew));
+    if(!crew.toLowerCase().includes(surname)) continue;
+
+    const {start,end}=findFlightStart(r,rows,merges,map.date);
+    if(used.has(start)) continue;
+    used.add(start);
+
+    const iso=dateToIso(parseDate(cell(rows,start,map.date)));
+    const dur=parseDur(cell(rows,start,map.duration)||cell(rows,start+1,map.duration));
+    if(!/^\d{4}-\d{2}-\d{2}$/.test(iso) || dur<=0) continue;
+
+    const refRow=Math.min(rows.length-1,start+4);
+    const meteoVals = collectUniqueFromBlock(rows,start,end,map.weather);
+    const weather = meteoVals.join(' / ');
+    const icaoVals = collectUniqueFromBlock(rows,start,end,map.icao);
+    let route = icaoVals.join(' -> ');
+    if(!route){
+      const startAirport=txt(cell(rows,start,map.airport));
+      const endAirport=txt(cell(rows,refRow,map.airport));
+      route=`${startAirport}->${endAirport}`.replace(/^->|->$/g,'');
+    }
+    const dn=txt(cell(rows,start,map.daynight)).toUpperCase()==='N'?'night':'day';
+    const sp=txt(cell(rows,start,map.sp));
+
+    pushEntry({date:iso,period:dn,durationMinutes:dur,flights:1,weather,route,source:'chrono',note:`SP ${sp} [H:${headerRow+1}]`.trim()});
+    added++;
+  }
+
+  save(); render();
+  el('chronoMsg').textContent=`Dodano wpisów: ${added}. Wykryty nagłówek: wiersz ${headerRow+1}.`;
+}
+
+function render(){
+  const locked=st.initialMinutes!==null&&st.initialFlights!==null;
+  el('initial').disabled=locked; el('initialFlights').disabled=locked; el('saveInitial').disabled=locked;
+  el('initial').value=st.initialMinutes!==null?fmt(st.initialMinutes,4):'';
+  el('initialFlights').value=st.initialFlights??0;
+  el('initialInfo').textContent=locked?`Zapisano ${fmt(st.initialMinutes,4)} i loty ${st.initialFlights}`:'Brak danych początkowych';
+
+  const y=+el('viewYear').value,m=+el('viewMonth').value;
+  let mDay=0,mNight=0,yAll=0,fmDay=0,fmNight=0,fyDay=0,fyNight=0;
+  const yearRows=st.entries.filter(e=>e.date.startsWith(`${y}-`));
+
+  yearRows.forEach(e=>{
+    const mm=+e.date.split('-')[1];
+    if(e.period==='night'){ yAll+=e.durationMinutes; fyNight+=e.flights; if(mm===m){mNight+=e.durationMinutes; fmNight+=e.flights;} }
+    else { yAll+=e.durationMinutes; fyDay+=e.flights; if(mm===m){mDay+=e.durationMinutes; fmDay+=e.flights;} }
+  });
+
+  el('mDay').textContent=fmt(mDay); el('mNight').textContent=fmt(mNight); el('mTotal').textContent=fmt(mDay+mNight);
+  el('yTotal').textContent=fmt(yAll,4); el('overall').textContent=fmt((st.initialMinutes||0)+yAll,4);
+  el('fmDay').textContent=String(fmDay); el('fmNight').textContent=String(fmNight);
+  el('fyDay').textContent=String(fyDay); el('fyNight').textContent=String(fyNight);
+  el('fOverall').textContent=String((st.initialFlights||0)+fyDay+fyNight);
+
+  const filtered=yearRows.filter(e=>+e.date.split('-')[1]===m).sort((a,b)=>a.date.localeCompare(b.date));
+  el('entries').innerHTML=filtered.map(e=>`<tr><td>${e.date}</td><td>${e.period==='night'?'Noc':'Dzień'}</td><td>${fmt(e.durationMinutes)}</td><td><span class="badge">${e.flights}</span></td><td>${e.weather||'-'}</td><td>${e.route||'-'}</td><td>${e.source||'-'}</td><td><button data-del="${e.id}" class="danger">Usuń</button></td></tr>`).join('') || '<tr><td colspan="8">Brak wpisów.</td></tr>';
+  document.querySelectorAll('button[data-del]').forEach(b=>b.onclick=()=>{st.entries=st.entries.filter(x=>x.id!==b.dataset.del); save(); render();});
+}
+
+function exportCsv(){
+  const lines=['date,period,duration_hhmm,duration_minutes,flights,weather,route,source,note',`#initial_minutes=${st.initialMinutes??0}`,`#initial_flights=${st.initialFlights??0}`];
+  st.entries.forEach(e=>lines.push([e.date,e.period,fmt(e.durationMinutes),e.durationMinutes,e.flights,`"${(e.weather||'').replaceAll('"','""')}"`,`"${(e.route||'').replaceAll('"','""')}"`,e.source||'',`"${(e.note||'').replaceAll('"','""')}"`].join(',')));
+  download(lines.join('\n'),'nalot.csv','text/csv;charset=utf-8;');
+}
+function importCsv(file){
+  const fr=new FileReader();
+  fr.onload=()=>{
+    const lines=String(fr.result||'').split(/\r?\n/).filter(Boolean);
+    while(lines[0]?.startsWith('#')){const l=lines.shift(); if(l.startsWith('#initial_minutes=')) st.initialMinutes=Number(l.split('=')[1])||0; if(l.startsWith('#initial_flights=')) st.initialFlights=Number(l.split('=')[1])||0;}
+    lines.shift();
+    st.entries=lines.map(l=>{const p=l.split(',');return {id:crypto.randomUUID(),date:p[0],period:p[1],durationMinutes:Number(p[3])||0,flights:Number(p[4])||1,weather:(p[5]||'').replace(/^"|"$/g,'').replaceAll('""','"'),route:(p[6]||'').replace(/^"|"$/g,'').replaceAll('""','"'),source:p[7]||'',note:p.slice(8).join(',').replace(/^"|"$/g,'').replaceAll('""','"')}});
+    save(); render();
+  };
+  fr.readAsText(file,'utf-8');
+}
+function exportTxt(){download(st.entries.map(e=>`${e.date} | ${e.period} | ${fmt(e.durationMinutes)} | loty:${e.flights} | pogoda:${e.weather||'-'} | trasa:${e.route||'-'} | ${e.source||''}`).join('\n'),'nalot.txt','text/plain;charset=utf-8;');}
+function download(content,name,mime){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([content],{type:mime}));a.download=name;a.click();URL.revokeObjectURL(a.href);}
+
+init();
+</script>
+</body>
+</html>
